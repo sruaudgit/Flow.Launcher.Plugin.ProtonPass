@@ -46,7 +46,7 @@ A [Flow Launcher](https://github.com/Flow-Launcher/Flow.Launcher) plugin for qui
 
 ![Item Details](ReadmeImgs/preview2.png)
 
-![Settings](ReadmeImgs/Settings.png)
+![Settings](ReadmeImgs/settings.png)
 
 
 ## Quick Start
