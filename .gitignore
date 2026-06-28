@@ -1,0 +1,10 @@
+bin/
+obj/
+artifacts/
+*.zip
+*.user
+*.suo
+.vs/
+PLAN_VAULT.md
+PLAN.md
+opencode prompt.txt

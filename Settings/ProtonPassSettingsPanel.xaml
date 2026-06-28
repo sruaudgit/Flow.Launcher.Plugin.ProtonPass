@@ -1,0 +1,16 @@
+<UserControl x:Class="Flow.Launcher.Plugin.ProtonPass.Settings.ProtonPassSettingsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Padding="16">
+    <StackPanel>
+        <TextBlock Text="Default vault (used when no @ prefix in query)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <TextBox Text="{Binding DefaultVault, UpdateSourceTrigger=PropertyChanged}"
+                 Width="200" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+        <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="Gray"
+                   Text="Tip: use @&lt;vault&gt; in your search to switch vault (e.g. @Work github). Use @* to search all vaults." />
+        <TextBlock Text="Max results" FontWeight="SemiBold" Margin="0,12,0,4"/>
+        <TextBox Text="{Binding MaxResults, UpdateSourceTrigger=PropertyChanged}"
+                 Width="80" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+        <CheckBox IsChecked="{Binding KeepOpenAfterAction}" Content="Keep Flow Launcher open after action (copy / open URL)" Margin="0,8,0,0"/>
+    </StackPanel>
+</UserControl>
