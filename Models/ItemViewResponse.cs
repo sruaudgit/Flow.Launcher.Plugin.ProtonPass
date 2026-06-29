@@ -17,7 +17,8 @@ public record LoginFields(
     [property: JsonPropertyName("email")] string? Email,
     [property: JsonPropertyName("username")] string? Username,
     [property: JsonPropertyName("password")] string? Password,
-    [property: JsonPropertyName("urls")] List<string>? Urls
+    [property: JsonPropertyName("urls")] List<string>? Urls,
+    [property: JsonPropertyName("totp_uri")] string? TotpUri
 );
 
 public record ExtraField(

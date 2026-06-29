@@ -12,7 +12,8 @@ A [Flow Launcher](https://github.com/Flow-Launcher/Flow.Launcher) plugin for qui
 - **Vault switching** — use `@VaultName` to scope your search to a specific vault
 - **All vaults mode** — use `@*` to search everything at once
 - **Vault names with spaces** — use `@"My Vault"` syntax
-- **Copy to clipboard** — click a field (email, username, password, etc.) to copy it
+- **TOTP tokens** — displays time-based one-time passwords from `totp_uri` fields, auto-updating every second
+- **Copy to clipboard** — click a field (email, username, password, TOTP, etc.) to copy it
 - **Open URLs** — click a URL to open it in your browser
 - **Refresh cache** — re-fetch all vaults and items on demand
 - **Configurable result limit** — control how many results are shown
@@ -95,6 +96,7 @@ When a single item matches, the plugin shows its details:
 | Email | envelope | Copy to clipboard |
 | Username | person | Copy to clipboard |
 | Password | key (masked as `****`) | Copy to clipboard |
+| TOTP | key | Copy to clipboard (auto-refreshes every second) |
 | URL | link | Open in browser |
 | Extra fields | key | Copy to clipboard |
 
@@ -151,7 +153,6 @@ The built plugin will be in `bin\Release\publish`.
 Make a zip file with the content of the directory and install with plugin manager in Flow Launcher `pm install <path to the zip>`.
 
 ## RoadMap
-* handle A2F token/totp
 * this is a search only tool, i have no plan to create/delete entries
 
 ## License

@@ -83,11 +83,11 @@ public class ProtonPassService
 
     public async Task<ItemViewResponse?> GetItemDetailAsync(string itemId, string shareId)
     {
-        _context.API.LogInfo(nameof(ProtonPassService), $"Fetching detail for itemId={itemId}, shareId={shareId}");
+       // _context.API.LogInfo(nameof(ProtonPassService), $"Fetching detail for itemId={itemId}, shareId={shareId}");
 
         var json = await RunPassCliAsync($"item view --output json --item-id {itemId} --share-id {shareId}");
 
-        _context.API.LogInfo(nameof(ProtonPassService), $"Detail JSON length: {json.Length} chars");
+        //_context.API.LogInfo(nameof(ProtonPassService), $"Detail JSON length: {json.Length} chars");
 
         try
         {
@@ -102,7 +102,7 @@ public class ProtonPassService
 
     private async Task<string> RunPassCliAsync(string arguments)
     {
-        _context.API.LogInfo(nameof(ProtonPassService), $"Running: pass-cli {arguments}");
+        //_context.API.LogInfo(nameof(ProtonPassService), $"Running: pass-cli {arguments}");
 
         var startInfo = new ProcessStartInfo
         {
@@ -127,8 +127,6 @@ public class ProtonPassService
 
         if (!string.IsNullOrEmpty(error))
             _context.API.LogInfo(nameof(ProtonPassService), $"Stderr: {error}");
-        if (!string.IsNullOrEmpty(output))
-            _context.API.LogInfo(nameof(ProtonPassService), $"Stdout: {output}");
 
         var combinedOutput = (error + output).Trim();
         if (!string.IsNullOrEmpty(combinedOutput) &&

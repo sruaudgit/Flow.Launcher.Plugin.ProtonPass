@@ -6,7 +6,7 @@ using Flow.Launcher.Plugin.ProtonPass.Settings;
 
 namespace Flow.Launcher.Plugin.ProtonPass;
 
-public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
+public class Main : IAsyncPlugin, IContextMenu, ISettingProvider, IResultUpdated
 {
     private PluginInitContext _context = null!;
     private ProtonPassSettings _settings = null!;
@@ -17,6 +17,12 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
     private List<VaultInfo> _vaults = [];
     private string? _defaultVaultId;
     private DateTime _lastLoginPrompt = DateTime.MinValue;
+    private CancellationTokenSource? _totpCts;
+    private Timer? _totpTimer;
+    private Query? _lastQuery;
+    private List<Result>? _lastResults;
+    private TotpGenerator? _totpGenerator;
+    public event ResultUpdatedEventHandler? ResultsUpdated;
 
     public async Task InitAsync(PluginInitContext context)
     {
@@ -73,7 +79,11 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
 
     public async Task<List<Result>> QueryAsync(Query query, CancellationToken token)
     {
-        _context.API.LogInfo(nameof(Main), $"QueryAsync called with rawSearch='{query.Search}'");
+        _totpCts?.Cancel();
+        _totpCts = null;
+        _totpGenerator = null;
+        _lastResults = null;
+
 
         var searchTerm = query.Search;
         var defaultVault = _vaults.FirstOrDefault(v =>
@@ -210,7 +220,7 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
             .ToList();
 
         var totalCached = _vaultCache.Values.Sum(l => l.Count);
-        _context.API.LogInfo(nameof(Main), $"Active login items: {logins.Count} (total cached: {totalCached})");
+       
 
         // --- Empty original search — show refresh + list ---
         if (string.IsNullOrWhiteSpace(query.Search))
@@ -270,7 +280,7 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
         else
             matches = logins.Where(i => i.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        _context.API.LogInfo(nameof(Main), $"Matches after filter: {matches.Count}");
+        //_context.API.LogInfo(nameof(Main), $"Matches after filter: {matches.Count}");
 
         if (matches.Count == 0)
             return [];
@@ -278,7 +288,13 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
         if (matches.Count == 1)
         {
             _context.API.LogInfo(nameof(Main), $"Single match, fetching detail for '{matches[0].Title}'");
-            return await BuildDetailResults(matches[0]);
+            _totpCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            _lastQuery = query;
+            var results = await BuildDetailResults(matches[0]);
+            _lastResults = results;
+            if (_totpGenerator != null)
+                StartTotpTimer();
+            return results;
         }
 
         return matches.Take(_settings.MaxResults).Select(item => new Result
@@ -303,7 +319,7 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
 
     private async Task<List<Result>> BuildDetailResults(ItemEntry item)
     {
-        _context.API.LogInfo(nameof(Main), $"Building detail results for '{item.Title}'");
+       
 
         var results = new List<Result>();
         ItemViewResponse? detail;
@@ -356,6 +372,25 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
             });
         }
 
+        if (!string.IsNullOrEmpty(login.TotpUri))
+        {
+            _totpGenerator = new TotpGenerator(login.TotpUri);
+            var token = _totpGenerator.GenerateTotp();
+            var remaining = _totpGenerator.GetRemainingSeconds();
+            results.Add(new Result
+            {
+                Title = FormatTotpToken(token),
+                SubTitle = $"TOTP · expires in {remaining}s",
+                IcoPath = "Images\\password.png",
+                RecordKey = "totp_" + item.Id,
+                Action = _ =>
+                {
+                    CopyToClipboard(token, "TOTP");
+                    return !_settings.KeepOpenAfterAction;
+                }
+            });
+        }
+
         if (login.Urls is not null)
         {
             foreach (var url in login.Urls)
@@ -378,12 +413,62 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
         return results;
     }
 
+    private void StartTotpTimer()
+    {
+        _totpTimer?.Dispose();
+        _totpTimer = new Timer(TotpTimerCallback, null, 0, 1000);
+    }
+
+    private void TotpTimerCallback(object? state)
+    {
+        if (_totpCts?.IsCancellationRequested == true || _totpGenerator == null || _lastResults == null)
+            return;
+
+        try
+        {
+            var token = _totpGenerator.GenerateTotp();
+            var remaining = _totpGenerator.GetRemainingSeconds();
+            var totpResult = _lastResults.FirstOrDefault(r => r.RecordKey?.StartsWith("totp_") == true);
+            if (totpResult == null)
+                return;
+
+            totpResult.Title = FormatTotpToken(token);
+            totpResult.SubTitle = $"TOTP · expires in {remaining}s";
+
+            void Fire() => ResultsUpdated?.Invoke(this, new ResultUpdatedEventArgs
+            {
+                Results = _lastResults,
+                Query = _lastQuery!,
+                Token = _totpCts?.Token ?? default
+            });
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher?.CheckAccess() == true)
+                Fire();
+            else
+                dispatcher?.Invoke(Fire);
+        }
+        catch (Exception ex)
+        {
+            _context.API.LogInfo(nameof(Main), $"TOTP timer error: {ex.Message}");
+        }
+    }
+
+    private static string FormatTotpToken(string token)
+    {
+        return token.Length switch
+        {
+            6 => $"{token[..3]} {token[3..]}",
+            8 => $"{token[..3]} {token[3..6]} {token[6..]}",
+            _ => token
+        };
+    }
+
     private void CopyToClipboard(string text, string label)
     {
         try
         {
             System.Windows.Clipboard.SetText(text);
-            _context.API.ShowMsg("Copied!", $"{label} copied to clipboard");
+            
         }
         catch (Exception ex)
         {
@@ -431,7 +516,7 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
         }
         _lastLoginPrompt = DateTime.UtcNow;
 
-        _context.API.LogInfo(nameof(Main), "ShowNotAuthenticated called - launching cmd /k pass-cli login");
+       
         try
         {
             void Launch()
@@ -466,7 +551,6 @@ public class Main : IAsyncPlugin, IContextMenu, ISettingProvider
                 var items = await _protonPassService.GetItemListAsync(vault.Name);
                 _vaultCache[vault.VaultId] = items;
                 total += items.Count;
-                _context.API.LogInfo(nameof(Main), $"Refreshed {items.Count} items for vault '{vault.Name}'");
             }
             _context.API.LogInfo(nameof(Main), $"Cache refreshed: {total} items across {_vaults.Count} vault(s)");
             _context.API.ShowMsg("Proton Pass", $"Cache refreshed: {total} items across {_vaults.Count} vault(s)");

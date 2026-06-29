@@ -8,3 +8,5 @@ artifacts/
 PLAN_VAULT.md
 PLAN.md
 opencode prompt.txt
+PLAN_TOTP.md
+buildandupdate.bat
